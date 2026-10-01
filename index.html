@@ -324,6 +324,14 @@ td.hero{font-weight:800}
       </div>
 
       <div class="card">
+        <h3>Traffic trend <span class="tag tool">Ahrefs</span></h3>
+        <p class="card-note" id="traf-note"></p>
+        <ul class="legend" id="lg-traf"></ul>
+        <div class="chart-wrap"><svg class="chart" id="ch-traf" viewBox="0 0 900 330" role="img" aria-label="Estimated monthly organic visits from Ahrefs, January to September 2026 plus the 1 October snapshot"></svg><div class="tt" id="tt-traf"></div></div>
+        <p class="card-note" id="traf-foot" style="margin-top:14px"></p>
+      </div>
+
+      <div class="card">
         <h3>Start here, in plain English</h3>
         <p class="card-note">Seven terms this report leans on. None of them mean what they sound like they mean.</p>
         <div class="glossary" id="gloss"></div>
@@ -26765,6 +26773,47 @@ function hBars(svgId, ttId, cfg){
   svg.addEventListener('mouseleave',function(){ tt.classList.remove('on'); });
 }
 
+function barsV(svgId, ttId, cfg){
+  var svg=document.getElementById(svgId), tt=document.getElementById(ttId);
+  if(!svg) return;
+  var W=cfg.w||900, H=cfg.h||330, mL=64, mR=20, mT=30, mB=46;
+  var pw=W-mL-mR, ph=H-mT-mB, N=cfg.rows.length;
+  var mx=Math.max.apply(null, cfg.rows.map(function(r){return r.v;}))||1;
+  var step=Math.pow(10,Math.floor(Math.log10(mx)));
+  if(mx/step<2) step/=5; else if(mx/step<5) step/=2;
+  var hi=Math.ceil(mx/step)*step, ticks=[];
+  for(var t=0;t<=hi+1e-9;t+=step) ticks.push(t);
+  if(ticks.length>7){ var k=Math.ceil(ticks.length/7); ticks=ticks.filter(function(_,i){return i%k===0||i===ticks.length-1;}); }
+  function Y(v){ return mT+ph-ph*v/hi; }
+  var gap=pw/N, bw=Math.min(54, gap*0.6);
+  var o=[];
+  ticks.forEach(function(t){
+    o.push('<line class="gridline" x1="'+mL+'" y1="'+Y(t).toFixed(1)+'" x2="'+(mL+pw)+'" y2="'+Y(t).toFixed(1)+'"/>');
+    o.push('<text class="axis-txt" x="'+(mL-9)+'" y="'+(Y(t)+3.5).toFixed(1)+'" text-anchor="end">'+n(t)+'</text>');
+  });
+  cfg.rows.forEach(function(r,i){
+    var cx=mL+gap*i+gap/2, y=Y(r.v), h=Math.max(1.5, mT+ph-y);
+    o.push('<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3" fill="'+r.color+'"/>');
+    o.push('<text class="pt-label" x="'+cx.toFixed(1)+'" y="'+(y-8).toFixed(1)+'" text-anchor="middle" fill="'+(r.labelColor||'#46556a')+'">'+n(r.v)+'</text>');
+    o.push('<text class="axis-txt" x="'+cx.toFixed(1)+'" y="'+(mT+ph+20)+'" text-anchor="middle">'+esc(r.label)+'</text>');
+    if(r.sub) o.push('<text class="axis-txt" x="'+cx.toFixed(1)+'" y="'+(mT+ph+34)+'" text-anchor="middle" font-size="9.5">'+esc(r.sub)+'</text>');
+    o.push('<rect class="hitx" data-i="'+i+'" x="'+(mL+gap*i).toFixed(1)+'" y="'+mT+'" width="'+gap.toFixed(1)+'" height="'+ph+'" fill="transparent"/>');
+  });
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.innerHTML=o.join('');
+  svg.querySelectorAll('.hitx').forEach(function(el){
+    el.addEventListener('mouseenter',function(){
+      var r=cfg.rows[+el.dataset.i];
+      tt.innerHTML='<div class="tt-h">'+esc(r.full||r.label)+'</div>'+
+        '<div class="tt-r"><span class="tt-n">Estimated visits</span><b>'+n(r.v)+'</b></div>'+(r.tip||'');
+      tt.classList.add('on');
+      var sc=svg.getBoundingClientRect().width/W, px=(mL+gap*(+el.dataset.i)+gap/2)*sc, ttw=tt.offsetWidth;
+      var wrap=svg.parentElement.getBoundingClientRect().width;
+      tt.style.left=Math.max(4,Math.min(wrap-ttw-4,px-ttw/2))+'px'; tt.style.top='12px';
+    });
+  });
+  svg.addEventListener('mouseleave',function(){ tt.classList.remove('on'); });
+}
 function legend(id, items){
   var el=document.getElementById(id); if(!el) return;
   el.innerHTML=items.map(function(s){
@@ -26846,6 +26895,32 @@ table('tb-cross',['Tool','What it counted in September','Figure','What it actual
   td('As at 16 September. Collection broke on the 17th, so later dates are unusable.')]
 ]);
 
+(function(){
+  var MLAB=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
+  var rows=MLAB.map(function(m,i){
+    var v=L.org_traffic[5+i];
+    var flagged = (m==='Sep');
+    return {label:m, sub: flagged?'inflated':'', v:v, color: flagged?C.amber:C.blue,
+            labelColor: flagged?'#8a5104':'#46556a',
+            full:m+' 2026',
+            tip: flagged?'<div class="tt-r"><span class="tt-n">Includes the AI Overview citation</span><b>yes</b></div>':''};
+  });
+  rows.push({label:'1 Oct', sub:'snapshot', v:L.org_traffic[14], color:C.amber, labelColor:'#8a5104',
+             full:'1 October 2026 snapshot',
+             tip:'<div class="tt-r"><span class="tt-n">Includes the AI Overview citation</span><b>yes</b></div>'});
+  legend('lg-traf',[{name:'Ahrefs estimate', color:C.blue},
+                    {name:'Inflated by the AI Overview citation', color:C.amber}]);
+  barsV('ch-traf','tt-traf',{h:330, rows:rows});
+  document.getElementById('traf-note').innerHTML=
+    'Estimated organic visits per month from Ahrefs. One measure, one tool, real numbers rather than an index. '+
+    '<b>The last two bars are amber because they are not comparable to the rest.</b> Ahrefs began crediting the "personal care" AI Overview citation as a position-1 ranking in September, '+
+    'and on the 1 October snapshot that single citation accounts for '+n(aioTraffic)+' of '+n(trafTotal)+' estimated visits. Section 08 shows the working.';
+  document.getElementById('traf-foot').innerHTML=
+    '<b>Why this is the only trend line in the report.</b> Ahrefs is the only source with history on this domain. '+
+    'Google Analytics and Search Console both started recording in late August, so each has exactly one complete month: '+
+    n(GA.total_sessions)+' sessions and '+n(GSp.clicks)+' Google clicks in September. '+
+    'A real click trend starts with the November refresh, and it will be the number worth watching, because it counts people rather than estimating them.';
+})();
 document.getElementById('gloss').innerHTML=[
   ['Impression','One time your page was shown in a list of Google results. Being shown is not being seen, and it is a long way from being clicked.'],
   ['Click-through rate','Clicks divided by impressions. A low rate at a high position usually means the result is being shown for searches it does not answer.'],
